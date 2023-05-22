@@ -1,3 +1,6 @@
+import json
+
+import tiktoken
 import streamlit as st
 from streamlit_folium import st_folium
 
@@ -93,16 +96,27 @@ if __name__ == "__main__":
                 # Get the Overpass API response containing the main locations
                 overpass_response = get_overpass_api_response(bbox)
 
-                # Get the OpenAI API response containing the description
-                description = get_openai_api_response(data=overpass_response, chat=chat)
+                # Check context length tokens
+                # Create a tokenizer
+                ENC = tiktoken.encoding_for_model("text-davinci-003")
+                context_length = len(ENC.encode(f"""contextual data: {json.dumps(overpass_response)}""")) - 589
+                print("CONTEX LENGTH: ", context_length)
 
-                text_container.markdown(
-                    f"""
-                    {description}
-                    """,
-                    unsafe_allow_html=True,
-                )
+                if context_length > 4097:
+                    st.sidebar.warning(
+                        "The API response is too long for me to read. Please select a smaller region."
+                    )
+                else:
+                    # Get the OpenAI API response containing the description
+                    description = get_openai_api_response(data=overpass_response, chat=chat)
 
-                # Display success message in the sidebar
-                st.sidebar.success("Successfully created description!")
+                    text_container.markdown(
+                        f"""
+                        {description}
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                    # Display success message in the sidebar
+                    st.sidebar.success("Successfully created description!")
 
