@@ -100,7 +100,6 @@ if __name__ == "__main__":
                 # Create a tokenizer
                 ENC = tiktoken.encoding_for_model("text-davinci-003")
                 context_length = len(ENC.encode(f"""contextual data: {json.dumps(overpass_response)}""")) - 589
-                print("CONTEX LENGTH: ", context_length)
 
                 if context_length > 4097:
                     st.sidebar.warning(

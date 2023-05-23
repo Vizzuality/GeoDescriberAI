@@ -44,9 +44,10 @@ def get_overpass_api_response(bbox):
     query = """
         [out:json];
         (
+          node["place"="island"]({bbox});
           node["place"="city"]({bbox});
           node["place"="town"]({bbox});
-          //relation["leisure"="nature_reserve"]["protect_class"="1"]({bbox});
+          node["place"="village"]({bbox});
           relation["leisure"="nature_reserve"]["protect_class"="2"]({bbox});
           relation["leisure"="nature_reserve"]["protect_class"="6"]({bbox});
         );
@@ -57,24 +58,24 @@ def get_overpass_api_response(bbox):
     result = api.query(query)
 
     # Top cities and protected_areas
-    top_cities_towns = _get_top_elements(result.nodes, "population", 5, reverse=True)
-    top_protected_area = _get_top_elements(result.relations, "protect_class", 8)
+    top_cities_towns = _get_top_elements(elements=result.nodes, desired_keys=['name', 'place', 'population', 'ele'],
+                                         sort_by="place", order=["island", "city", "town", "village"])
+    top_protected_area = _get_top_elements(elements=result.relations, desired_keys=['name', 'protection_title', "protect_class", 'boundary'],
+                                           sort_by="protect_class", order=["2", "6"])
 
     overpass_response = {'elements': top_cities_towns + top_protected_area}
 
     return overpass_response
 
 
-def _get_top_elements(elements, tag_key, num_elements, reverse=False):
+def _get_top_elements(elements, desired_keys, n_elements=20, sort_by=None, order=None):
     # create a list of main element tags
-    tags_list = []
+    elements_list = []
 
     # iterate over the elements in the result
     for element in elements:
-        element_data = {
-            'id': element.id,
-            'tags': element.tags
-        }
+        element_tags = element.tags
+        element_data = {key: value for key, value in element_tags.items() if key in desired_keys}
         if type(element) == overpy.Node:
             element_data['lat'] = float(element.lat)
             element_data['lon'] = float(element.lon)
@@ -85,27 +86,16 @@ def _get_top_elements(elements, tag_key, num_elements, reverse=False):
                 'lon': float(element.center_lon)}
             element_data['type'] = 'relation'
 
-        # get the tag value for the specified key
-        tag_value = element.tags.get(tag_key)
-        if tag_value is not None:
-            # convert the tag value to the appropriate data type (e.g., int, str)
-            try:
-                tag_value = int(tag_value)
-            except ValueError:
-                pass
+        # Add the element to the list
+        elements_list.append(element_data)
 
-            # add the element and its tag value to the list
-            tags_list.append((element_data, tag_value))
+    # Sort elements
+    if sort_by:
+        elements_list = sorted(elements_list, key=lambda x: order.index(x[sort_by]))
 
-    # sort the list based on the tag value
-    tags_list.sort(key=lambda x: x[1], reverse=reverse)
+    return elements_list[:n_elements]
 
-    # get the top elements with the largest tag value
-    top_elements = tags_list[:num_elements]
 
-    # create a list of tags from the top elements
-    top_elements_tags = [tags for tags, value in top_elements]
 
-    return top_elements_tags
 
 
