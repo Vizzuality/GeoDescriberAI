@@ -1,31 +1,60 @@
-import json
-
-import tiktoken
+import requests
 import streamlit as st
+from shapely import Polygon
+from pydantic import BaseModel
 from streamlit_folium import st_folium
 
 from geo_describer_ai.map import FoliumMap
-from geo_describer_ai.utils import get_bbox
-from geo_describer_ai.apis import get_overpass_api_response, get_openai_api_response
-from geo_describer_ai.verification import selected_bbox_in_boundary, selected_bbox_too_large
-
+from geo_describer_ai.verification import selected_bbox_too_large, selected_bbox_in_boundary
 
 MAP_CENTER = [25.0, 55.0]
 MAP_ZOOM = 3
 MAX_ALLOWED_AREA_SIZE = 25.0
-BTN_LABEL = "Describe"
+BTN_LABEL = "Submit"
+API_BASE_URL = "http://localhost:8000"
 
-if __name__ == "__main__":
+
+# Define the models for the input data:
+class Bbox(BaseModel):
+    min_lon: float
+    min_lat: float
+    max_lon: float
+    max_lat: float
+
+
+class Chat(BaseModel):
+    text: str
+
+
+def display_context_data(bbox_data):
+    st.subheader("Context Data")
+    response = requests.post(f"{API_BASE_URL}/context", json=bbox_data.dict())
+    if response.status_code == 200:
+        context_data = response.json()
+        st.json(context_data)
+    else:
+        st.error("Error retrieving context data. Please try again.")
+
+
+def display_description(bbox_data, chat_data):
+    st.subheader("Description")
+    response = requests.post(f"{API_BASE_URL}/description", json={"bbox": bbox_data.dict(), "chat": chat_data.dict()})
+    if response.status_code == 200:
+        description = response.json()["description"]
+        st.write(description)
+    else:
+        st.error("Error retrieving description. Please try again.")
+
+
+# Create the Streamlit app and define the main code:
+def main():
     st.set_page_config(
         page_title="mapa",
         page_icon=":earth_africa:",
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    st.title(":earth_africa: Map to describe a region!")
-
-    st.write(
-        """Hello! I'm GeoDescriberAI, a Geospatial AI assistant that describes any location.""")
+    st.title(":earth_africa: GeoDescriber API Demo")
 
     m = FoliumMap(center=MAP_CENTER, zoom=MAP_ZOOM)
 
@@ -38,44 +67,34 @@ if __name__ == "__main__":
                 # get latest modified drawing
                 geojson = output["last_active_drawing"]
 
-
     # ensure progress bar resides at top of sidebar and is invisible initially
     progress_bar = st.sidebar.progress(0)
     progress_bar.empty()
 
     # Getting Started container
     with st.sidebar.container():
+        # Getting started
+        st.subheader("Getting Started")
         st.markdown(
             f"""
-                # Getting Started
-                1. Click the black square on the map
-                2. Draw a rectangle on the map
-                3. Provide your description request in the textbox below
-                4. Click on <kbd>{BTN_LABEL}</kbd>
-                5. Wait for the computation to finish
-                """,
+                        1. Click the black square on the map
+                        2. Draw a rectangle on the map
+                        3. Provide your description request in the textbox below
+                        4. Click on <kbd>{BTN_LABEL}</kbd>
+                        5. Wait for the computation to finish
+                        """,
             unsafe_allow_html=True,
         )
 
-        # Create input text area
-        chat = st.text_area("What do you want me to describe about this region? :thinking_face:")
+        # Input form for chat text
+        st.subheader("Chat Text")
+        chat_form = st.form(key="chat_form")
+        chat_text = chat_form.text_area("What do you want me to describe about this region? :thinking_face:",
+                                        value="Describe the history, climate, and landscape of the region.")
+        submit_chat = chat_form.form_submit_button("Submit", disabled=False if geojson is not None else True)
 
-        # Create an empty container for the description
-        # Display description of the region
-        st.markdown(
-            f"""
-                            ### Description of the region:
-                            """,
-            unsafe_allow_html=True,
-        )
-
-        text_container = st.empty()
-
-        # Add the button and its callback
-        if st.button(BTN_LABEL,
-                     key="describe",
-                     disabled=False if geojson is not None else True):
-
+        # Display results upon submission
+        if geojson or submit_chat:
             # Check if the geometry is valid
             geometry = geojson['geometry']
             if selected_bbox_too_large(geometry, threshold=MAX_ALLOWED_AREA_SIZE):
@@ -90,32 +109,22 @@ if __name__ == "__main__":
                     "Ensure to use the initial center view of the world for drawing your rectangle."
                 )
             else:
-                # Get the bbox
-                bbox = get_bbox(geojson)
+                # Create a Shapely polygon from the coordinates
+                poly = Polygon(geojson['geometry']['coordinates'][0])
+                # Get the bbox coordinates using the bounds() method
+                min_lon, min_lat, max_lon, max_lat = poly.bounds
 
-                # Get the Overpass API response containing the main locations
-                overpass_response = get_overpass_api_response(bbox)
+                bbox_data = Bbox(min_lon=min_lon, min_lat=min_lat, max_lon=max_lon, max_lat=max_lat)
+                chat_data = Chat(text=chat_text)
 
-                # Check context length tokens
-                # Create a tokenizer
-                ENC = tiktoken.encoding_for_model("text-davinci-003")
-                context_length = len(ENC.encode(f"""contextual data: {json.dumps(overpass_response)}""")) - 589
-
-                if context_length > 4097:
-                    st.sidebar.warning(
-                        "The API response is too long for me to read. Please select a smaller region."
-                    )
-                else:
-                    # Get the OpenAI API response containing the description
-                    description = get_openai_api_response(data=overpass_response, chat=chat)
-
-                    text_container.markdown(
-                        f"""
-                        {description}
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
+                if geojson and not submit_chat:
+                    display_context_data(bbox_data)
+                if submit_chat:
+                    display_description(bbox_data, chat_data)
                     # Display success message in the sidebar
                     st.sidebar.success("Successfully created description!")
+
+
+if __name__ == "__main__":
+    main()
 
