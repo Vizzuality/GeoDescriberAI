@@ -11,7 +11,7 @@ MAP_CENTER = [25.0, 55.0]
 MAP_ZOOM = 3
 MAX_ALLOWED_AREA_SIZE = 25.0
 BTN_LABEL = "Submit"
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:3000"
 
 
 # Define the models for the input data:
