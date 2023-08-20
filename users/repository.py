@@ -5,7 +5,7 @@ from database.repository import MongoRepository
 from users.model import User
 
 
-def get_repository(connection_string: str):
+def get_user_repository():
     return UserRepository(client, db, users_collection)
 
 
@@ -17,6 +17,9 @@ class UserRepository(MongoRepository):
 
     def create_user(self, user: User):
         return self.collection.insert_one(user.dict())
+
+    def get_user_by_credentials(self, username: str, password: str):
+        return self.collection.find_one({"username": username, "password": password})
 
     def find_user_by_username(self, username: str):
         return self.collection.find_one({"username": username})

@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.params import Depends
 from pydantic import BaseModel
 
+from auth.auth import create_token
 from database.repository import get_mongo_repository
 from processing.context_data import get_overpass_api_response
 from processing.description import get_openai_api_response
 from questions_answers.repository import QuestionAnswerRepository, get_qa_repository
+from users.repository import UserRepository, get_user_repository
 
 app = FastAPI()
 mongo_repository = get_mongo_repository()
@@ -30,7 +32,16 @@ async def startup_event():
         print("Connected to MongoDB")
     else:
         print("Failed to connect to MongoDB")
-        # You may want to add logic here to handle the failed connection, like raising an exception or shutting down the application.
+
+
+@app.post("/login")
+async def login(username: str, password: str, user_repo: UserRepository = Depends(get_user_repository)):
+    user = await user_repo.get_user_by_credentials(username, password)
+    if user:
+        token = create_token(user.id)
+        return {"access_token": token}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
 @app.post("/context")
