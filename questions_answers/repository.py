@@ -1,11 +1,12 @@
-from database.db_config import collection, db, client
+from database.db_config import db, client, qa_collection
+from database.repository import MongoRepository
 
 
-def get_repository():
-    return MongoRepository(client, db, collection)
+def get_qa_repository():
+    return QuestionAnswerRepository(client, db, qa_collection)
 
 
-class MongoRepository:
+class QuestionAnswerRepository(MongoRepository):
     def __init__(self, mongo_client, mongo_db, mongo_collection):
         self.client = mongo_client
         self.db = mongo_db
@@ -20,11 +21,3 @@ class MongoRepository:
         }
         result = await self.collection.insert_one(document)
         return str(result.inserted_id)
-
-    async def test_connection(self):
-        try:
-            await self.db.command("serverStatus")
-            return True
-        except Exception as e:
-            print("Error connecting to MongoDB:", e)
-            print("Q&A won't be saved to database.")
