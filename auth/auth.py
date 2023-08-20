@@ -1,19 +1,33 @@
 import datetime
-import os
+from typing import Annotated
 
 import jwt
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 
-SECRET_KEY = os.getenv("SECRET_KEY")  # Make sure to keep this secret and secure
+from config.config import get_config
+
+# from database.db_config import secret
+
+secret = get_config().secret
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-def create_token(user_id: str):
+def create_token(username: str):
     expiration_time = datetime.datetime.utcnow() + datetime.timedelta(days=1)
     payload = {
-        "user_id": user_id,
+        "username": username,
         "exp": expiration_time,
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def decode_token(token: str):
-    return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    return jwt.decode(token, secret, algorithms=["HS256"])
+
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    username = decode_token(token)
+    print('** DECODED TOKEN **')
+    return username

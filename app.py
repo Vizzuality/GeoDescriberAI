@@ -1,11 +1,18 @@
 import requests
 import streamlit as st
-from shapely import Polygon
 from pydantic import BaseModel
+from shapely import Polygon
 from streamlit_folium import st_folium
 
 from geo_describer_ai.map import FoliumMap
 from geo_describer_ai.verification import selected_bbox_too_large, selected_bbox_in_boundary
+
+st.set_page_config(
+    page_title="mapa",
+    page_icon=":earth_africa:",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 MAP_CENTER = [25.0, 55.0]
 MAP_ZOOM = 3
@@ -26,6 +33,28 @@ class Chat(BaseModel):
     text: str
 
 
+def login(username, password):
+    response = requests.post(f"{API_BASE_URL}/login", data={"username": username, "password": password})
+    if response.status_code == 200:
+        token = response.json()["access_token"]
+        return token
+    else:
+        st.error("Invalid credentials. Please try again.")
+        return None
+
+
+def login_page():
+    st.subheader("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        token = login(username, password)
+        if token:
+            st.session_state.token = token
+            st.success("Logged in successfully")
+            main()
+
+
 def display_context_data(bbox_data):
     st.subheader("Context Data")
     response = requests.post(f"{API_BASE_URL}/context", json=bbox_data.dict())
@@ -38,22 +67,23 @@ def display_context_data(bbox_data):
 
 def display_description(bbox_data, chat_data):
     st.subheader("Description")
-    response = requests.post(f"{API_BASE_URL}/description", json={"bbox": bbox_data.dict(), "chat": chat_data.dict()})
+    headers = {"Authorization": f"Bearer {st.session_state.token}"}
+    response = requests.post(f"{API_BASE_URL}/description", json={"bbox": bbox_data.dict(), "chat": chat_data.dict()},
+                             headers=headers)
     if response.status_code == 200:
         description = response.json()["description"]
         st.write(description)
+    elif response.status_code == 401:  # Unauthorized
+        st.warning("Your session has expired. Please log in again.")
     else:
         st.error("Error retrieving description. Please try again.")
 
 
 # Create the Streamlit app and define the main code:
 def main():
-    st.set_page_config(
-        page_title="mapa",
-        page_icon=":earth_africa:",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+    if "token" not in st.session_state:
+        login_page()
+        return
     st.title(":earth_africa: GeoDescriber API Demo")
 
     m = FoliumMap(center=MAP_CENTER, zoom=MAP_ZOOM)
@@ -127,4 +157,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

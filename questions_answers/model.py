@@ -6,6 +6,7 @@ class QuestionAnswerSchema(BaseModel):
     answer: str
     context: str = None
     is_correct: bool = None
+    username: str = None
 
     class Config:
         schema_extra = {

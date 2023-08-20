@@ -1,14 +1,10 @@
-import os
-
 import motor.motor_asyncio
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-MONGO_CONNECTION = os.getenv("MONGO_CONNECTION")
+from config.config import get_config
 
 # Connect to MongoDB
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_CONNECTION)
-db = client.get_database(os.getenv("MONG0_DATABASE"))
-qa_collection = db.get_collection(os.getenv("MONGO_QA_COLLECTION"))
-users_collection = db.get_collection(os.getenv("MONGO_USERS_COLLECTION"))
+client = motor.motor_asyncio.AsyncIOMotorClient(get_config().mongo_connection)
+db = client.get_database(get_config().db_name)
+db_name = get_config().db_name
+qa_collection_name = get_config().qa_collection
+users_collection_name = get_config().users_collection
