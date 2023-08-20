@@ -15,7 +15,6 @@ class MongoRepository:
 
     async def test_connection(self) -> bool:
         try:
-            # The "ping" command is a no-op used to test whether the server is responding to commands
             await self.client.admin.command("ping")
             return True
         except Exception as e:
