@@ -10,4 +10,5 @@ MONGO_CONNECTION = os.getenv("MONGO_CONNECTION")
 # Connect to MongoDB
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_CONNECTION)
 db = client.get_database(os.getenv("MONG0_DATABASE"))
-collection = db.get_collection(os.getenv("MONGO_COLLECTION"))
+qa_collection = db.get_collection(os.getenv("MONGO_QA_COLLECTION"))
+users_collection = db.get_collection(os.getenv("MONGO_USERS_COLLECTION"))
