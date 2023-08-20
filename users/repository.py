@@ -1,12 +1,12 @@
 import motor
 
-from database.db_config import db, client, users_collection
+from database.db_config import client, db_name, users_collection_name
 from database.repository import MongoRepository
 from users.model import User
 
 
 def get_user_repository():
-    return UserRepository(client, db, users_collection)
+    return UserRepository(client, db_name, users_collection_name)
 
 
 class UserRepository(MongoRepository):
